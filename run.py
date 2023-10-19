@@ -221,6 +221,8 @@ def main():
     cfg['work_dir'] = osp.join(cfg.work_dir, dir_time_str)
     os.makedirs(osp.join(cfg.work_dir, 'configs'), exist_ok=True)
 
+    cfg['lark_bot_url'] = 'https://open.feishu.cn/open-apis/bot/v2/hook/4ed2ea71-de72-45a8-8eca-ea015f4694ab'
+
     # dump config
     output_config_path = osp.join(cfg.work_dir, 'configs',
                                   f'{cfg_time_str}.py')

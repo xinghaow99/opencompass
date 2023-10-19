@@ -297,9 +297,60 @@ class HuggingFace(BaseModel):
             outputs = self.model(input_ids)
         return outputs[0], {'tokens': tokens}
 
+    def get_cd_logits(self, inputs: List[str], amateur_layer_idx: int, cd_alpha: float, cd_beta: float):
+        # print("getting cd logits with amateur layer idx: ", amateur_layer_idx, "cd_alpha: ", cd_alpha, "cd_beta: ", cd_beta)
+        if self.batch_padding and len(inputs) > 1:
+            # batch inference
+            tokens = self.tokenizer(inputs,
+                                    padding=True,
+                                    truncation=True,
+                                    max_length=self.max_seq_len)
+
+            tokens = {
+                k: torch.tensor(np.array(tokens[k]), device=self.model.device)
+                for k in tokens if k in ['input_ids', 'attention_mask']
+            }
+            outputs = self.model(**tokens, output_hidden_states=True, return_dict=True)
+        else:
+            input_ids = self.tokenizer(
+                inputs,
+                padding=False,
+                truncation=True,
+                max_length=self.max_seq_len)['input_ids']
+            input_ids = torch.tensor(input_ids, device=self.model.device)
+            tokens = {'input_ids': input_ids}
+            outputs = self.model(input_ids, output_hidden_states=True, return_dict=True)
+
+        with torch.no_grad():
+            expert_logits = outputs.logits
+            amateur_layer_hidden_states = outputs.hidden_states[amateur_layer_idx]
+            amateur_logits = self.model.lm_head(amateur_layer_hidden_states)
+            if amateur_logits.device != expert_logits.device:
+                amateur_logits = amateur_logits.to(expert_logits.device)
+
+            cutoff = torch.log(cd_alpha*torch.ones_like(expert_logits)) + expert_logits.max(dim=-1, keepdim=True).values
+            diffs = (1 + cd_beta)*expert_logits - cd_beta*amateur_logits
+            diffs_min = diffs.min(dim=-1, keepdim=True).values
+            cd_logits = torch.where(expert_logits < cutoff, diffs_min, diffs)
+            same_pred_mask = torch.argmax(expert_logits, dim=-1, keepdim=True) == torch.argmax(amateur_logits, dim=-1, keepdim=True)
+            same_pred_mask = same_pred_mask.expand_as(expert_logits)
+            cd_logits = torch.where(same_pred_mask, expert_logits, cd_logits)
+            # cd_logits = diffs.masked_fill(expert_logits < cutoff, -float('inf'))
+
+            # expert_probs = torch.softmax(expert_logits, dim=-1)
+            # amateur_probs = torch.softmax(amateur_logits, dim=-1)
+            # cd_logits = (1 + cd_beta)*expert_probs - cd_beta*(amateur_probs)
+
+
+            # print("cd_logits: ", cd_logits)
+            # print("expert_logits: ", expert_logits)
+            # print("amateur_logits: ", amateur_logits)
+        return cd_logits, {'tokens': tokens}
+
     def get_ppl(self,
                 inputs: List[str],
-                mask_length: Optional[List[int]] = None) -> List[float]:
+                mask_length: Optional[List[int]] = None,
+                **kwargs) -> List[float]:
         """Get perplexity scores given a list of inputs.
 
         Args:
@@ -316,16 +367,17 @@ class HuggingFace(BaseModel):
 
         if self.batch_padding and len(inputs) > 1:
             assert self.tokenizer.pad_token
-            return self._get_ppl(inputs, mask_length=mask_length)
+            return self._get_ppl(inputs, mask_length=mask_length, **kwargs)
         else:
             return np.concatenate([
                 self._get_ppl(inputs=[text], mask_length=mask_length)
                 for text in inputs
-            ])
+            ], **kwargs)
 
     def _get_ppl(self,
                  inputs: List[str],
-                 mask_length: Optional[List[int]] = None) -> List[float]:
+                 mask_length: Optional[List[int]] = None,
+                 **kwargs) -> List[float]:
         """Get perplexity scores given a list of inputs.
 
         Args:
@@ -339,12 +391,16 @@ class HuggingFace(BaseModel):
         Returns:
             List[float]: A list of perplexity scores.
         """
-
-        outputs, inputs = self.get_logits(inputs)
+        amateur_layer_idx = kwargs.get('amateur_layer_idx', None)
+        cd_alpha = kwargs.get('cd_alpha', None)
+        cd_beta = kwargs.get('cd_beta', None)
+        if amateur_layer_idx is not None:
+            outputs, inputs = self.get_cd_logits(inputs, amateur_layer_idx, cd_alpha, cd_beta)
+        else:
+            outputs, inputs = self.get_logits(inputs)
         shift_logits = outputs[..., :-1, :].contiguous().float()
 
         shift_labels = inputs['tokens']['input_ids'][..., 1:].contiguous()
-
         loss_fct = torch.nn.CrossEntropyLoss(
             reduction='none', ignore_index=self.tokenizer.pad_token_id)
         loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
@@ -356,7 +412,7 @@ class HuggingFace(BaseModel):
                 for j in range(mask_length[i] - 1, len(mask[i])):
                     mask[i][j] = 1
             loss = loss * mask
-
+        print("loss: ", loss)
         lens = (inputs['tokens']['input_ids'] !=
                 self.tokenizer.pad_token_id).sum(-1).cpu().numpy()
         if mask_length is not None:

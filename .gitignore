@@ -11,7 +11,9 @@ configs/eval_debug*.py
 configs/viz_*.py
 data
 work_dirs
-
+configs
+evals
+*.sh
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

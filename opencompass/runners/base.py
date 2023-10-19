@@ -58,12 +58,14 @@ class BaseRunner:
         """
 
         failed_logs = []
+        task_num = 0
         for _task, code in status:
+            task_num += 1
             if code != 0:
                 get_logger().error(f'{_task} failed with code {code}')
                 failed_logs.append(_task)
         if self.lark_reporter:
-            num_succeeded = len(status) - len(failed_logs)
+            num_succeeded = task_num - len(failed_logs)
             if len(failed_logs) > 0:
                 content = f'{getpass.getuser()} \'s '
                 content += f'{self.task_cfg.type} tasks finished. '

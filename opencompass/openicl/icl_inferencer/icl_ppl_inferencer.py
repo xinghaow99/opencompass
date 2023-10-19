@@ -52,6 +52,7 @@ class PPLInferencer(BaseInferencer):
         )
 
         self.labels = labels
+        self.kwargs = kwargs
 
     def inference(self,
                   retriever: BaseRetriever,
@@ -167,17 +168,20 @@ class PPLInferencer(BaseInferencer):
                     if normalizing_str is not None:
                         res1 = self.model.get_ppl_from_template(
                             sub_prompt_list,
-                            mask_length=sub_context_length_list)
+                            mask_length=sub_context_length_list,
+                            **self.kwargs)
                         res2 = self.model.get_ppl_from_template(
                             sub_normalizing_prompt_list,
                             mask_length=[
                                 normalizing_str_len
                                 for i in range(len(sub_prompt_list))
-                            ])
+                            ],
+                            **self.kwargs)
                         sub_res = res1 - res2
                     else:
                         sub_res = self.model.get_ppl_from_template(
-                            sub_prompt_list).tolist()
+                            sub_prompt_list,
+                            **self.kwargs).tolist()
                 for res, prompt in zip(
                         sub_res,
                         self.model.parse_template(sub_prompt_list,

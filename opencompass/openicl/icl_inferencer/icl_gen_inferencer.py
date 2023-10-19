@@ -63,7 +63,7 @@ class GenInferencer(BaseInferencer):
 
         self.gen_field_replace_token = gen_field_replace_token
         self.max_out_len = max_out_len
-
+        self.kwargs = kwargs
         if self.model.is_api and save_every is None:
             save_every = 1
         self.save_every = save_every
@@ -126,7 +126,7 @@ class GenInferencer(BaseInferencer):
             with torch.no_grad():
                 parsed_entries = self.model.parse_template(entry, mode='gen')
                 results = self.model.generate_from_template(
-                    entry, max_out_len=self.max_out_len)
+                    entry, max_out_len=self.max_out_len, **self.kwargs)
                 generated = results
 
             # 5-3. Save current output

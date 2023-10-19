@@ -100,7 +100,8 @@ class BaseModel:
 
     def get_ppl_from_template(self,
                               templates: List[PromptType],
-                              mask_length=None):
+                              mask_length=None,
+                              **kwargs):
         """Get perplexity given a list of templates.
 
         Args:
@@ -109,7 +110,7 @@ class BaseModel:
                 perplexity will be calculated only on the unmasked tokens.
         """
         inputs = self.parse_template(templates, mode='ppl')
-        return self.get_ppl(inputs, mask_length)
+        return self.get_ppl(inputs, mask_length, **kwargs)
 
     def generate_from_template(self, templates: List[PromptType],
                                max_out_len: int, **kwargs):

@@ -11,7 +11,7 @@ with read_base():
     from ..FewCLUE_chid.FewCLUE_chid_gen_0a29a2 import chid_datasets
     from ..FewCLUE_cluewsc.FewCLUE_cluewsc_gen_c68933 import cluewsc_datasets
     from ..FewCLUE_eprstmt.FewCLUE_eprstmt_gen_740ea0 import eprstmt_datasets
-    from ..humaneval.humaneval_gen_8e312c import humaneval_datasets
+    from ..humaneval.humaneval_gen_layer_25_alpha_05_beta_05 import humaneval_datasets
     from ..mbpp.mbpp_gen_1e1056 import mbpp_datasets
     from ..lambada.lambada_gen_217e11 import lambada_datasets
     from ..storycloze.storycloze_gen_7f656a import storycloze_datasets
