@@ -5,13 +5,14 @@ models = [
     dict(
         type=HuggingFaceCausalLM,
         abbr='llama-2-13b-hf',
-        path="/remote-home/share/llama_v2_hf/13b",
-        tokenizer_path='/remote-home/share/llama_v2_hf/13b',
+        path="/remote-home/share/models/llama_v2_hf/13b",
+        tokenizer_path='/remote-home/share/models/llama_v2_hf/13b',
         tokenizer_kwargs=dict(padding_side='left',
                               truncation_side='left',
                               use_fast=False,
-                              pad_token='[PAD]'
+                              
                               ),
+        pad_token_id=0,
         max_out_len=100,
         max_seq_len=2048,
         batch_size=4,

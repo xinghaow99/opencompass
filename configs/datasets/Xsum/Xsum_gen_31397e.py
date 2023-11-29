@@ -13,7 +13,7 @@ Xsum_infer_cfg = dict(
             dict(
                 role="HUMAN",
                 prompt=
-                "Document：{dialogue}\nBased on the previous text, provide a brief single summary:"
+                "Document: {dialogue}\nBased on the previous text, provide a brief single summary:"
             ),
         ]),
     ),

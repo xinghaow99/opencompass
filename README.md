@@ -27,13 +27,16 @@ to **OpenCompass**!
 
 Just like a compass guides us on our journey, OpenCompass will guide you through the complex landscape of evaluating large language models. With its powerful algorithms and intuitive interface, OpenCompass makes it easy to assess the quality and effectiveness of your NLP models.
 
-> **🔥 Attention**<br />
-> We launch the OpenCompass Collabration project, welcome to support diverse evaluation benchmarks into OpenCompass!
+🔥🔥🔥 We are delighted to announce that **the OpenCompass has been recommended by the Meta AI**, click [Get Started](https://ai.meta.com/llama/get-started/#validation) of Llama for more information.
+
+> **Attention**<br />
+> We launch the OpenCompass Collaboration project, welcome to support diverse evaluation benchmarks into OpenCompass!
 > Clike [Issue](https://github.com/open-compass/opencompass/issues/248) for more information.
 > Let's work together to build a more powerful OpenCompass toolkit!
 
 ## 🚀 What's New <a><img width="35" height="20" src="https://user-images.githubusercontent.com/12782558/212848161-5e783dd6-11e8-4fe0-bbba-39ffb77730be.png"></a>
 
+- **\[2023.10.24\]** We release a new benchmark for evaluating LLMs’ capabilities of having multi-turn dialogues. Welcome to [BotChat](https://github.com/open-compass/BotChat) for more details. 🔥🔥🔥.
 - **\[2023.09.26\]** We update the leaderboard with [Qwen](https://github.com/QwenLM/Qwen), one of the best-performing open-source models currently available, welcome to our [homepage](https://opencompass.org.cn) for more details. 🔥🔥🔥.
 - **\[2023.09.20\]** We update the leaderboard with [InternLM-20B](https://github.com/InternLM/InternLM), welcome to our [homepage](https://opencompass.org.cn) for more details. 🔥🔥🔥.
 - **\[2023.09.19\]** We update the leaderboard with WeMix-LLaMA2-70B/Phi-1.5-1.3B, welcome to our [homepage](https://opencompass.org.cn) for more details.
@@ -42,7 +45,6 @@ Just like a compass guides us on our journey, OpenCompass will guide you through
 - **\[2023.09.06\]**  [**Baichuan2**](https://github.com/baichuan-inc/Baichuan2) team adpots OpenCompass to evaluate their models systematically. We deeply appreciate the community's dedication to transparency and reproducibility in LLM evaluation.
 - **\[2023.09.02\]** We have supported the evaluation of [Qwen-VL](https://github.com/QwenLM/Qwen-VL) in OpenCompass.
 - **\[2023.08.25\]**  [**TigerBot**](https://github.com/TigerResearch/TigerBot) team adpots OpenCompass to evaluate their models systematically. We deeply appreciate the community's dedication to transparency and reproducibility in LLM evaluation.
-- **\[2023.08.21\]** [**Lagent**](https://github.com/InternLM/lagent) has been released, which is a lightweight framework for building LLM-based agents. We are working with Lagent team to support the evaluation of general tool-use capability, stay tuned!
 
 > [More](docs/en/notes/news.md)
 
@@ -50,21 +52,21 @@ Just like a compass guides us on our journey, OpenCompass will guide you through
 
 ![image](https://github.com/open-compass/opencompass/assets/22607038/f45fe125-4aed-4f8c-8fe8-df4efb41a8ea)
 
-OpenCompass is a one-stop platform for large model evaluation, aiming to provide a fair, open, and reproducible benchmark for large model evaluation. Its main features includes:
+OpenCompass is a one-stop platform for large model evaluation, aiming to provide a fair, open, and reproducible benchmark for large model evaluation. Its main features include:
 
 - **Comprehensive support for models and datasets**: Pre-support for 20+ HuggingFace and API models, a model evaluation scheme of 70+ datasets with about 400,000 questions, comprehensively evaluating the capabilities of the models in five dimensions.
 
 - **Efficient distributed evaluation**: One line command to implement task division and distributed evaluation, completing the full evaluation of billion-scale models in just a few hours.
 
-- **Diversified evaluation paradigms**: Support for zero-shot, few-shot, and chain-of-thought evaluations, combined with standard or dialogue type prompt templates, to easily stimulate the maximum performance of various models.
+- **Diversified evaluation paradigms**: Support for zero-shot, few-shot, and chain-of-thought evaluations, combined with standard or dialogue-type prompt templates, to easily stimulate the maximum performance of various models.
 
 - **Modular design with high extensibility**: Want to add new models or datasets, customize an advanced task division strategy, or even support a new cluster management system? Everything about OpenCompass can be easily expanded!
 
-- **Experiment management and reporting mechanism**: Use config files to fully record each experiment, support real-time reporting of results.
+- **Experiment management and reporting mechanism**: Use config files to fully record each experiment, and support real-time reporting of results.
 
 ## 📊 Leaderboard
 
-We provide [OpenCompass Leaderbaord](https://opencompass.org.cn/rank) for community to rank all public models and API models. If you would like to join the evaluation, please provide the model repository URL or a standard API interface to the email address `opencompass@pjlab.org.cn`.
+We provide [OpenCompass Leaderbaord](https://opencompass.org.cn/rank) for the community to rank all public models and API models. If you would like to join the evaluation, please provide the model repository URL or a standard API interface to the email address `opencompass@pjlab.org.cn`.
 
 <p align="right"><a href="#top">🔝Back to top</a></p>
 
@@ -385,6 +387,8 @@ Through the command line or configuration files, OpenCompass also supports evalu
   </tbody>
 </table>
 
+## OpenCompass Ecosystem
+
 <p align="right"><a href="#top">🔝Back to top</a></p>
 
 ## 📖 Model Support
@@ -442,7 +446,7 @@ Through the command line or configuration files, OpenCompass also supports evalu
   - [ ] Long-context evaluation with extensive datasets.
   - [ ] Long-context leaderboard.
 - [ ] Coding
-  - [ ] Coding evaluation leaderdboard.
+  - [ ] Coding evaluation leaderboard.
   - [ ] Non-python language evaluation service.
 - [ ] Agent
   - [ ] Support various agenet framework.
@@ -452,7 +456,7 @@ Through the command line or configuration files, OpenCompass also supports evalu
 
 ## 👷‍♂️ Contributing
 
-We appreciate all contributions to improve OpenCompass. Please refer to the [contributing guideline](https://opencompass.readthedocs.io/en/latest/notes/contribution_guide.html) for the best practice.
+We appreciate all contributions to improving OpenCompass. Please refer to the [contributing guideline](https://opencompass.readthedocs.io/en/latest/notes/contribution_guide.html) for the best practice.
 
 ## 🤝 Acknowledgements
 

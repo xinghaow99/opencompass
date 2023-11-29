@@ -66,6 +66,7 @@ from .storycloze import *  # noqa: F401, F403
 from .strategyqa import *  # noqa: F401, F403
 from .summedits import *  # noqa: F401, F403
 from .summscreen import *  # noqa: F401, F403
+from .tabmwp import *  # noqa: F401, F403
 from .TheoremQA import *  # noqa: F401, F403
 from .tnews import *  # noqa: F401, F403
 from .triviaqa import *  # noqa: F401, F403
@@ -81,3 +82,4 @@ from .xcopa import *  # noqa: F401, F403
 from .xiezhi import XiezhiDataset, XiezhiRetriever  # noqa: F401, F403
 from .xlsum import *  # noqa: F401, F403
 from .xsum import *  # noqa: F401, F403
+from .asdiv import *

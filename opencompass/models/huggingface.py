@@ -94,31 +94,42 @@ class HuggingFace(BaseModel):
         from transformers import AutoTokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(
             tokenizer_path if tokenizer_path else path, **tokenizer_kwargs)
-
+        print(self.tokenizer)
+        print("tokenizer_kwargs: ", tokenizer_kwargs)
+        print("self.pad_token_id: ", self.pad_token_id)
+        print("self.tokenizer.pad_token_id: ", self.tokenizer.pad_token_id)
         # A patch for some models without pad_token_id
         if self.pad_token_id is not None:
             if self.pad_token_id < 0:
                 self.pad_token_id += self.tokenizer.vocab_size
             if self.tokenizer.pad_token_id is None:
-                self.logger.warning(
-                    f'Using {self.pad_token_id} as pad_token_id')
+                self.logger.debug(f'Using {self.pad_token_id} as pad_token_id')
             elif self.tokenizer.pad_token_id != self.pad_token_id:
                 self.logger.warning(
-                    f'pad_token_id is not consistent with the tokenizer. Using {self.pad_token_id} as pad_token_id'  # noqa
-                )
+                    'pad_token_id is not consistent with the tokenizer. Using '
+                    f'{self.pad_token_id} as pad_token_id')
             self.tokenizer.pad_token_id = self.pad_token_id
         elif self.tokenizer.pad_token_id is None:
             self.logger.warning('pad_token_id is not set for the tokenizer.')
             if self.tokenizer.eos_token is not None:
-                self.logger.warning('Using eos_token_id as pad_token_id.')
                 self.logger.warning(
-                    f'{self.tokenizer.eos_token} la {self.tokenizer.eos_token is None}'  # noqa
-                )
+                    f'Using eos_token_id {self.tokenizer.eos_token} '
+                    'as pad_token_id.')
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             else:
-                raise ValueError(
-                    'pad_token_id is not set for this tokenizer. Try to set pad_token_id via passing `pad_token_id={PAD_TOKEN_ID}` in model_cfg. You may find pad_token_id in `generation.json`'  # noqa
-                )
+                from transformers.generation import GenerationConfig
+                gcfg = GenerationConfig.from_pretrained(path)
+
+                if gcfg.pad_token_id is not None:
+                    self.logger.warning(
+                        f'Using pad_token_id {gcfg.pad_token_id} '
+                        'as pad_token_id.')
+                    self.tokenizer.pad_token_id = gcfg.pad_token_id
+                else:
+                    raise ValueError(
+                        'pad_token_id is not set for this tokenizer. Try to '
+                        'set pad_token_id via passing '
+                        '`pad_token_id={PAD_TOKEN_ID}` in model_cfg.')
 
         # A patch for llama when batch_padding = True
         if 'decapoda-research/llama' in path or \
@@ -131,13 +142,28 @@ class HuggingFace(BaseModel):
             self.tokenizer.eos_token = '</s>'
             self.tokenizer.pad_token_id = 0
 
+    def _set_model_kwargs_torch_dtype(self, model_kwargs):
+        if 'torch_dtype' not in model_kwargs:
+            torch_dtype = torch.float16
+        else:
+            torch_dtype = {
+                'torch.float16': torch.float16,
+                'torch.bfloat16': torch.bfloat16,
+                'torch.float': torch.float,
+                'auto': 'auto',
+                'None': None
+            }.get(model_kwargs['torch_dtype'])
+        self.logger.debug(f'HF using torch_dtype: {torch_dtype}')
+        if torch_dtype is not None:
+            model_kwargs['torch_dtype'] = torch_dtype
+
     def _load_model(self,
                     path: str,
                     model_kwargs: dict,
                     peft_path: Optional[str] = None):
         from transformers import AutoModel, AutoModelForCausalLM
 
-        model_kwargs.setdefault('torch_dtype', torch.float16)
+        self._set_model_kwargs_torch_dtype(model_kwargs)
         try:
             self.model = AutoModelForCausalLM.from_pretrained(
                 path, **model_kwargs)
@@ -150,6 +176,7 @@ class HuggingFace(BaseModel):
                                                    peft_path,
                                                    is_trainable=False)
         self.model.eval()
+        self.model.generation_config.do_sample = False
 
         # A patch for llama when batch_padding = True
         if 'decapoda-research/llama' in path:
@@ -346,6 +373,236 @@ class HuggingFace(BaseModel):
             # print("expert_logits: ", expert_logits)
             # print("amateur_logits: ", amateur_logits)
         return cd_logits, {'tokens': tokens}
+    def get_layer_entropy(self, layer_prob):
+        eps = torch.finfo(layer_prob.dtype).tiny
+        layer_prob = layer_prob.clamp(min=eps)
+        layer_entropy = -torch.sum(layer_prob * torch.log(layer_prob), dim=-1)
+        return layer_entropy
+    
+    def get_layer_entropy_log(self, layer_log_prob):
+        layer_entropy = -torch.sum(layer_log_prob.exp() * layer_log_prob, dim=-1)
+        return layer_entropy
+    
+    # def get_min_entropy_diff_layer(self, layer_prob):
+    #     layer_entropy = self.get_layer_entropy(layer_prob)
+    #     entropy_diff = torch.diff(layer_entropy, dim=0) # (num_layers-1, batch_size, seq_len)
+    #     entropy_diff = entropy_diff.transpose(0, 1)
+    #     start_layer = entropy_diff.argmin(dim=-1) + 1
+    #     return start_layer
+    def get_min_entropy_diff_layer(self, layer_prob):
+        layer_entropy = self.get_layer_entropy(layer_prob)
+        # print("layer_entropy shape:", layer_entropy.shape)  # Print shape of layer_entropy
+        # print("layer_entropy: ", layer_entropy)
+        entropy_diff = torch.diff(layer_entropy, dim=0).transpose(0, 1)  # (batch_size, num_layers-1, seq_len)
+        # print("entropy_diff shape:", entropy_diff.shape)  # Print shape of entropy_diff
+                
+        start_layer = entropy_diff.argmin(dim=1) + 1
+        # print("start_layer shape:", start_layer.shape)  # Print shape of start_layer
+        return start_layer
+    
+    def get_min_entropy_diff_layer_log(self, layer_log_prob):
+        # layer_entropy = self.get_layer_entropy_log(layer_log_prob)
+        layer_entropy = -torch.sum(layer_log_prob.exp() * layer_log_prob, dim=-1)
+        # print("layer_entropy shape:", layer_entropy.shape)  # Print shape of layer_entropy
+
+        entropy_diff = torch.diff(layer_entropy, dim=0)  # (num_layers-1, batch_size, seq_len)
+        # print("entropy_diff shape:", entropy_diff.shape)  # Print shape of entropy_diff
+        
+        entropy_diff = entropy_diff.transpose(0, 1)
+        # print("transposed entropy_diff shape:", entropy_diff.shape)  # Print shape after transposing
+        
+        start_layer = entropy_diff.argmin(dim=1) + 1
+        # print("start_layer shape:", start_layer.shape)  # Print shape of start_layer
+        return start_layer
+    
+    def get_refined_probs(self, inputs: List[str], alpha: float, beta: float):
+        if self.batch_padding and len(inputs) > 1:
+            # batch inference
+            tokens = self.tokenizer(inputs,
+                                    padding=True,
+                                    truncation=True,
+                                    max_length=self.max_seq_len)
+
+            tokens = {
+                k: torch.tensor(np.array(tokens[k]), device=self.model.device)
+                for k in tokens if k in ['input_ids', 'attention_mask']
+            }
+            outputs = self.model(**tokens, output_hidden_states=True, return_dict=True)
+        else:
+            input_ids = self.tokenizer(
+                inputs,
+                padding=False,
+                truncation=True,
+                max_length=self.max_seq_len)['input_ids']
+            input_ids = torch.tensor(input_ids, device=self.model.device)
+            tokens = {'input_ids': input_ids}
+            outputs = self.model(input_ids, output_hidden_states=True, return_dict=True)
+
+        with torch.no_grad():
+            stacked_hidden_states = torch.stack(outputs.hidden_states, dim=0)
+            # print("stacked_hidden_states shape:", stacked_hidden_states.shape)  # Print shape of stacked_hidden_states
+
+            layer_logits = self.model.lm_head(stacked_hidden_states)
+            # print("layer_logits shape:", layer_logits.shape)  # Print shape of layer_logits
+
+            # layer_prob = torch.softmax(layer_logits, dim=-1)
+            layer_prob = torch.nn.functional.log_softmax(layer_logits, dim=-1)
+            # print("layer_prob shape:", layer_prob.shape)  # Print shape of layer_prob
+
+            refine_start_layer_idx = self.get_min_entropy_diff_layer(layer_prob)
+            # print("refine_start_layer_idx shape:", refine_start_layer_idx.shape)  # Print shape of refine_start_layer_idx
+            # print("refine_start_layer_idx:", refine_start_layer_idx)  # Print value of refine_start_layer_idx
+            num_layers = layer_prob.size(0)
+            # print("num_layers:", num_layers)  # Print value of num_layers
+
+            momentum = torch.zeros_like(layer_prob[-1], device=layer_prob.device)
+            # print("momentum shape:", momentum.shape)  # Print shape of momentum
+
+            # Assuming beta and alpha are defined elsewhere as scalars
+            for t in range(1, num_layers):
+                delta_p = layer_prob[t] - layer_prob[t-1]
+                # print(f"delta_p shape at t={t}:", delta_p.shape)  # Print shape of delta_p at each time step
+
+                mask = (torch.arange(num_layers, device=layer_prob.device).unsqueeze(0).unsqueeze(0) >= refine_start_layer_idx.unsqueeze(-1))
+                # print(f"mask shape at t={t}:", mask.shape)  # Print shape of mask at each time step
+
+                # Update momentum using the mask
+                expanded_mask = mask[:, :, t].unsqueeze(-1).expand_as(momentum)
+                # print(f"expanded_mask shape at t={t}:", expanded_mask.shape)  # Print shape of expanded_mask at each time step
+                # print("expanded_mask:", expanded_mask)  # Print value of expanded_mask
+                momentum = torch.where(expanded_mask, beta * momentum + (1 - beta) * delta_p, momentum)
+                # print(f"momentum shape at t={t}:", momentum.shape)  # Print shape of momentum at each time step
+
+            weight_factor = (num_layers - refine_start_layer_idx.float()) / num_layers
+            # print("weight_factor shape:", weight_factor.shape)  # Print shape of weight_factor
+
+            refined = layer_prob[-1] + alpha * (1 - weight_factor.unsqueeze(-1).expand_as(layer_prob[-1])) * momentum
+            # print("refined shape:", refined.shape)  # Print shape of refined
+        return refined, {'tokens': tokens}
+    
+    def get_refined_logits(self, inputs: List[str], alpha: float, beta: float):
+        if self.batch_padding and len(inputs) > 1:
+            # batch inference
+            tokens = self.tokenizer(inputs,
+                                    padding=True,
+                                    truncation=True,
+                                    max_length=self.max_seq_len)
+
+            tokens = {
+                k: torch.tensor(np.array(tokens[k]), device=self.model.device)
+                for k in tokens if k in ['input_ids', 'attention_mask']
+            }
+            outputs = self.model(**tokens, output_hidden_states=True, return_dict=True)
+        else:
+            input_ids = self.tokenizer(
+                inputs,
+                padding=False,
+                truncation=True,
+                max_length=self.max_seq_len)['input_ids']
+            input_ids = torch.tensor(input_ids, device=self.model.device)
+            tokens = {'input_ids': input_ids}
+            outputs = self.model(input_ids, output_hidden_states=True, return_dict=True)
+
+        with torch.no_grad():
+            stacked_hidden_states = torch.stack(outputs.hidden_states, dim=0)
+
+            layer_logits = self.model.lm_head(stacked_hidden_states)
+
+            layer_log_prob = torch.nn.functional.log_softmax(layer_logits, dim=-1)
+
+            refine_start_layer_idx = self.get_min_entropy_diff_layer_log(layer_log_prob)
+            num_layers = layer_logits.size(0)
+
+            momentum = torch.zeros_like(layer_logits[-1], device=layer_logits.device)
+            # weight_factor = (num_layers - refine_start_layer_idx.float()) / num_layers
+            # weight_factor = (1 - weight_factor.unsqueeze(-1).expand_as(layer_log_prob[-1]))
+            # beta = (1-weight_factor.unsqueeze(-1).expand_as(layer_log_prob[-1])) * beta
+            # Assuming beta and alpha are defined elsewhere as scalars
+            for t in range(1, num_layers):
+                delta_p = layer_logits[t] - layer_logits[t-1]
+
+                mask = (torch.arange(num_layers, device=layer_logits.device).unsqueeze(0).unsqueeze(0) >= refine_start_layer_idx.unsqueeze(-1))
+
+                # Update momentum using the mask
+                expanded_mask = mask[:, :, t].unsqueeze(-1).expand_as(momentum)
+                momentum = torch.where(expanded_mask, beta * momentum + (1 - beta) * delta_p, momentum)
+
+            # weight_factor = (num_layers - refine_start_layer_idx.float()) / num_layers
+            # weight_factor = (1 - weight_factor.unsqueeze(-1).expand_as(layer_log_prob[-1]))
+            # refined = layer_log_prob[-1] + alpha * weight_factor * momentum
+            refined = layer_logits[-1] + alpha * momentum
+        return refined, {'tokens': tokens}
+
+    def get_refined_log_probs(self, inputs: List[str], alpha: float, beta: float):
+        if self.batch_padding and len(inputs) > 1:
+            # batch inference
+            tokens = self.tokenizer(inputs,
+                                    padding=True,
+                                    truncation=True,
+                                    max_length=self.max_seq_len)
+
+            tokens = {
+                k: torch.tensor(np.array(tokens[k]), device=self.model.device)
+                for k in tokens if k in ['input_ids', 'attention_mask']
+            }
+            outputs = self.model(**tokens, output_hidden_states=True, return_dict=True)
+        else:
+            input_ids = self.tokenizer(
+                inputs,
+                padding=False,
+                truncation=True,
+                max_length=self.max_seq_len)['input_ids']
+            input_ids = torch.tensor(input_ids, device=self.model.device)
+            tokens = {'input_ids': input_ids}
+            outputs = self.model(input_ids, output_hidden_states=True, return_dict=True)
+
+        with torch.no_grad():
+            # stacked_hidden_states = torch.stack(outputs.hidden_states, dim=0)
+
+            # layer_logits = self.model.lm_head(torch.stack(outputs.hidden_states, dim=0))
+
+            layer_log_prob = torch.nn.functional.log_softmax(self.model.lm_head(torch.stack(outputs.hidden_states, dim=0)), dim=-1)
+
+            # refine_start_layer_idx = self.get_min_entropy_diff_layer_log(layer_log_prob)
+            # layer_entropy = -torch.sum(layer_log_prob.exp() * layer_log_prob, dim=-1)
+            layer_entropy = []
+
+            # Iterate along the first dimension
+            for log_prob in layer_log_prob:
+                entropy = -torch.sum(log_prob.exp() * log_prob, dim=-1)
+                layer_entropy.append(entropy)
+
+            # Converting the list back to a tensor
+            layer_entropy = torch.stack(layer_entropy)
+            
+            entropy_diff = torch.diff(layer_entropy, dim=0).transpose(0, 1)
+        
+            refine_start_layer_idx = entropy_diff.argmin(dim=1) + 1
+            
+            num_layers = layer_log_prob.size(0)
+
+            momentum = torch.zeros_like(layer_log_prob[-1], device=layer_log_prob.device)
+            # weight_factor = (num_layers - refine_start_layer_idx.float()) / num_layers
+            # weight_factor = (1 - weight_factor.unsqueeze(-1).expand_as(layer_log_prob[-1]))
+            # beta = (1-weight_factor.unsqueeze(-1).expand_as(layer_log_prob[-1])) * beta
+            # Assuming beta and alpha are defined elsewhere as scalars
+            for t in range(1, num_layers):
+                delta_p = layer_log_prob[t].exp()  - layer_log_prob[t-1].exp()
+
+                mask = (torch.arange(num_layers, device=layer_log_prob.device).unsqueeze(0).unsqueeze(0) >= refine_start_layer_idx.unsqueeze(-1))
+
+                # Update momentum using the mask
+                expanded_mask = mask[:, :, t].unsqueeze(-1).expand_as(momentum)
+                momentum = torch.where(expanded_mask, beta * momentum + (1 - beta) * delta_p, momentum)
+
+            # weight_factor = (num_layers - refine_start_layer_idx.float()) / num_layers
+            # weight_factor = (1 - weight_factor.unsqueeze(-1).expand_as(layer_log_prob[-1]))
+            # refined = layer_log_prob[-1] + alpha * weight_factor * momentum
+            refined = layer_log_prob[-1].exp() + alpha * momentum
+            refined = refined.clamp(min=torch.finfo(refined.dtype).tiny)
+            refined /= refined.sum(dim=-1, keepdim=True)
+            refined = torch.log(refined)
+        return refined, {'tokens': tokens}
 
     def get_ppl(self,
                 inputs: List[str],
@@ -364,15 +621,14 @@ class HuggingFace(BaseModel):
         Returns:
             List[float]: A list of perplexity scores.
         """
-
         if self.batch_padding and len(inputs) > 1:
             assert self.tokenizer.pad_token
             return self._get_ppl(inputs, mask_length=mask_length, **kwargs)
         else:
             return np.concatenate([
-                self._get_ppl(inputs=[text], mask_length=mask_length)
+                self._get_ppl(inputs=[text], mask_length=mask_length, **kwargs)
                 for text in inputs
-            ], **kwargs)
+            ])
 
     def _get_ppl(self,
                  inputs: List[str],
@@ -394,17 +650,32 @@ class HuggingFace(BaseModel):
         amateur_layer_idx = kwargs.get('amateur_layer_idx', None)
         cd_alpha = kwargs.get('cd_alpha', None)
         cd_beta = kwargs.get('cd_beta', None)
-        if amateur_layer_idx is not None:
+        if isinstance(amateur_layer_idx, int):
             outputs, inputs = self.get_cd_logits(inputs, amateur_layer_idx, cd_alpha, cd_beta)
+        elif isinstance(amateur_layer_idx, str):
+            assert amateur_layer_idx in ["auto_refine", "auto_refine_log", "auto_refine_logits"]
+            if amateur_layer_idx == "auto_refine":
+                outputs, inputs = self.get_refined_probs(inputs, cd_alpha, cd_beta)
+                raise NotImplementedError()
+            elif amateur_layer_idx == "auto_refine_log":
+                outputs, inputs = self.get_refined_log_probs(inputs, cd_alpha, cd_beta)
+                shift_log_probs = outputs[..., :-1, :].contiguous().float()
+                shift_labels = inputs['tokens']['input_ids'][..., 1:].contiguous().to(shift_log_probs.device)
+                loss_fct = torch.nn.NLLLoss(reduction='none', ignore_index=self.tokenizer.pad_token_id)
+                loss = loss_fct(shift_log_probs.view(-1, shift_log_probs.size(-1)),
+                            shift_labels.view(-1)).view(shift_labels.size())
+            elif amateur_layer_idx == "auto_refine_logits":
+                outputs, inputs = self.get_refined_logits(inputs, cd_alpha, cd_beta)
+                raise NotImplementedError()
         else:
             outputs, inputs = self.get_logits(inputs)
-        shift_logits = outputs[..., :-1, :].contiguous().float()
+            shift_logits = outputs[..., :-1, :].contiguous().float()
 
-        shift_labels = inputs['tokens']['input_ids'][..., 1:].contiguous()
-        loss_fct = torch.nn.CrossEntropyLoss(
-            reduction='none', ignore_index=self.tokenizer.pad_token_id)
-        loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
-                        shift_labels.view(-1)).view(shift_labels.size())
+            shift_labels = inputs['tokens']['input_ids'][..., 1:].contiguous().to(shift_logits.device)
+            loss_fct = torch.nn.CrossEntropyLoss(
+                reduction='none', ignore_index=self.tokenizer.pad_token_id)
+            loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
+                            shift_labels.view(-1)).view(shift_labels.size())
 
         if mask_length is not None:
             mask = torch.zeros_like(shift_labels)  # [batch,seqlen]
@@ -412,7 +683,7 @@ class HuggingFace(BaseModel):
                 for j in range(mask_length[i] - 1, len(mask[i])):
                     mask[i][j] = 1
             loss = loss * mask
-        print("loss: ", loss)
+        # print("loss: ", loss)
         lens = (inputs['tokens']['input_ids'] !=
                 self.tokenizer.pad_token_id).sum(-1).cpu().numpy()
         if mask_length is not None:
@@ -465,7 +736,7 @@ class HuggingFaceCausalLM(HuggingFace):
                     peft_path: Optional[str] = None):
         from transformers import AutoModelForCausalLM
 
-        model_kwargs.setdefault('torch_dtype', torch.float16)
+        self._set_model_kwargs_torch_dtype(model_kwargs)
         self.model = AutoModelForCausalLM.from_pretrained(path, **model_kwargs)
         if peft_path is not None:
             from peft import PeftModel
@@ -473,3 +744,4 @@ class HuggingFaceCausalLM(HuggingFace):
                                                    peft_path,
                                                    is_trainable=False)
         self.model.eval()
+        self.model.generation_config.do_sample = False
