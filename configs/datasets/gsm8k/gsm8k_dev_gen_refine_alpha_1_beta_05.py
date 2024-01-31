@@ -33,7 +33,7 @@ gsm8k_datasets = [
     dict(
         abbr='gsm8k-dev-refine-alpha-1-beta-05',
         type=Gsm8kDevDataset,
-        data_files='/remote-home/xhwang/BetterDecoding/gsm8k_dev.json',
+        data_files='/remote-home/xhwang/BetterDecoding/gsm8k_dev_1500.json',
         reader_cfg=gsm8k_reader_cfg,
         infer_cfg=gsm8k_infer_cfg,
         eval_cfg=gsm8k_eval_cfg)

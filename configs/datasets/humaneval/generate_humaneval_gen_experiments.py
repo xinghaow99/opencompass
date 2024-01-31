@@ -21,7 +21,7 @@ humaneval_infer_cfg = dict(
                 prompt='Complete the following python code:\\n{{prompt}}'),
         ])),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=512, amateur_layer_idx={amateur_layer_idx}, cd_alpha={cd_alpha}, cd_beta={cd_beta}))
+    inferencer=dict(type=GenInferencer, max_out_len=512, amateur_layer_idx="auto_refine", cd_alpha={cd_alpha}, cd_beta={cd_beta}))
 
 humaneval_eval_cfg = dict(
     evaluator=dict(type=HumanEvaluator),
@@ -33,7 +33,7 @@ humaneval_eval_cfg = dict(
 humaneval_datasets = [
     dict(
         type=HFDataset,
-        abbr='humaneval-layer-{amateur_layer_idx}-alpha-{str(cd_alpha).replace('.', '')}-beta-{str(cd_beta).replace('.', '')}',
+        abbr='humaneval-refine-alpha-{str(cd_alpha).replace('.', '')}-beta-{str(cd_beta).replace('.', '')}',
         path='openai_humaneval',
         reader_cfg=humaneval_reader_cfg,
         infer_cfg=humaneval_infer_cfg,
@@ -41,7 +41,7 @@ humaneval_datasets = [
 ]
     """
 
-    file_name = f"humaneval_gen_layer_{amateur_layer_idx}_alpha_{str(cd_alpha).replace('.', '')}_beta_{str(cd_beta).replace('.', '')}.py"
+    file_name = f"humaneval_gen_refine_alpha_{str(cd_alpha).replace('.', '')}_beta_{str(cd_beta).replace('.', '')}.py"
     with open(file_name, "w") as f:
         f.write(template)
 
@@ -52,6 +52,6 @@ humaneval_datasets = [
 import numpy as np
 if __name__ == "__main__":
     for layer in ["auto"]:
-        for alpha in [0]:
-            for beta in [0.25]:
+        for alpha in [0.1, 0.5, 1, 1.5, 2]:
+            for beta in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
                 generate_script(layer, alpha, beta)
