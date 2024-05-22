@@ -39,7 +39,7 @@ llava_scienceqa_dataloader = dict(
 # model settings
 llava_scienceqa_model = dict(
     type='llava',
-    model_path='/path/to/llava',
+    model_path='/cpfs01/shared/alillm2/user/wangxinghao/models/llava-v1.5-7b',
     prompt_constructor=dict(type=LLaVAScienceQAPromptConstructor),
     post_processor=dict(type=LLaVABasePostProcessor)
 )  # noqa

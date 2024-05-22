@@ -4,6 +4,7 @@ outputs/
 icl_inference_output/
 .vscode/
 tmp/
+configs/eval_subjective_alignbench_test.py
 configs/openai_key.py
 configs/secrets.py
 configs/datasets/log.json
@@ -14,6 +15,9 @@ work_dirs
 
 evals
 *.sh
+
+models/*
+
 configs/internal/
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -92,3 +96,32 @@ docs/zh_cn/_build/
 
 # sft config ignore list
 configs/sft_cfg/*B_*
+configs/sft_cfg/7B/*
+configs/sft_cfg/20B/*
+configs/cky/
+# in case llama clone in the opencompass
+llama/
+
+# in case ilagent clone in the opencompass
+ilagent/
+
+# ignore the config file for criticbench evaluation
+configs/sft_cfg/criticbench_eval/*
+
+# path of turbomind's model after runing `lmdeploy.serve.turbomind.deploy`
+turbomind/
+
+# cibench output
+*.db
+*.pth
+*.pt
+*.onnx
+*.gz
+*.gz.*
+*.png
+*.txt
+*.jpg
+*.json
+*.csv
+*.npy
+*.c

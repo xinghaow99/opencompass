@@ -23,7 +23,7 @@ gsm8k_infer_cfg = dict(
             ],
         )),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=512, amateur_layer_idx="auto_refine", cd_alpha=1, cd_beta=0.5))
+    inferencer=dict(type=GenInferencer, max_out_len=256, amateur_layer_idx="refine", cd_alpha=1, cd_beta=0.5))
 
 gsm8k_eval_cfg = dict(evaluator=dict(type=AccEvaluator),
                       pred_postprocessor=dict(type=gsm8k_postprocess),

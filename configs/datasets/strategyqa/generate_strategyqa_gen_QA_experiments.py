@@ -69,6 +69,6 @@ strategyqa_datasets = [
 import numpy as np
 if __name__ == "__main__":
     for layer in ["'auto'"]:
-        for alpha in [4.5, 5, 5.5, 6, 6.5, 7]:
-            for beta in [0.99]:
+        for alpha in [1]:
+            for beta in [0.9, 0.99, 0.999]:
                 generate_script(layer, alpha, beta)

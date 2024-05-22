@@ -18,42 +18,60 @@ pip install lmdeploy
 
 ## Evaluation
 
-We take the InternLM as example.
+OpenCompass integrates turbomind's python API for evaluation.
 
-### Step-1: Get InternLM model
+We take the InternLM-20B as example. Firstly, we prepare the evaluation config `configs/eval_internlm_turbomind.py`:
 
-```shell
-# 1. Download InternLM model(or use the cached model's checkpoint)
+```python
+from mmengine.config import read_base
+from opencompass.models.turbomind import TurboMindModel
 
-# Make sure you have git-lfs installed (https://git-lfs.com)
-git lfs install
-git clone https://huggingface.co/internlm/internlm-chat-7b /path/to/internlm-chat-7b
 
-# if you want to clone without large files – just their pointers
-# prepend your git clone with the following env var:
-GIT_LFS_SKIP_SMUDGE=1
+with read_base():
+    # choose a list of datasets
+    from .datasets.mmlu.mmlu_gen_a484b3 import mmlu_datasets
+    from .datasets.ceval.ceval_gen_5f30c7 import ceval_datasets
+    from .datasets.SuperGLUE_WiC.SuperGLUE_WiC_gen_d06864 import WiC_datasets
+    from .datasets.triviaqa.triviaqa_gen_2121ce import triviaqa_datasets
+    from .datasets.gsm8k.gsm8k_gen_1d7fe4 import gsm8k_datasets
+    from .datasets.humaneval.humaneval_gen_8e312c import humaneval_datasets
+    # and output the results in a chosen format
+    from .summarizers.medium import summarizer
 
-# 2. Convert InternLM model to turbomind's format, which will be in "./workspace" by default
-python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b /path/to/internlm-chat-7b
+datasets = sum((v for k, v in locals().items() if k.endswith('_datasets')), [])
 
+# config for internlm-20b model
+internlm_20b = dict(
+        type=TurboMindModel,
+        abbr='internlm-20b-turbomind',
+        path="internlm/internlm-20b",  # this path should be same as in huggingface
+        engine_config=dict(session_len=2048,
+                           max_batch_size=8,
+                           rope_scaling_factor=1.0),
+        gen_config=dict(top_k=1, top_p=0.8,
+                        temperature=1.0,
+                        max_new_tokens=100),
+        max_out_len=100,
+        max_seq_len=2048,
+        batch_size=8,
+        concurrency=8,
+        run_cfg=dict(num_gpus=1, num_procs=1),
+    )
+
+models = [internlm_20b]
 ```
 
-### Step-2: Launch Triton Inference Server
+Then, in the home folder of OpenCompass, start evaluation by the following command:
 
 ```shell
-bash ./workspace/service_docker_up.sh
-```
-
-\*\*Note: \*\*In the implementation of turbomind, inference is "persistent". The "destroy" operation can lead to unexpected issues. Therefore, we temporarily use service interfaces for model evaluation. And we will integrate the Python API to OpenCompass when turbomind supports "destroy".
-
-### Step-3: Evaluate the Converted Model
-
-In the home folder of OpenCompass
-
-```shell
-python run.py configs/eval_internlm_chat_7b_turbomind.py -w outputs/turbomind
+python run.py configs/eval_internlm_turbomind.py -w outputs/turbomind/internlm-20b
 ```
 
 You are expected to get the evaluation results after the inference and evaluation.
 
-\*\*Note: \*\*In `eval_internlm_chat_7b_turbomind.py`, the configured Triton Inference Server (TIS) address is `tis_addr='0.0.0.0:33337'`. Please modify `tis_addr` to the IP address of the machine where the server is launched.
+**Note**:
+
+- If you want to pass more arguments for `engine_config`和`gen_config` in the evaluation config file, please refer to [TurbomindEngineConfig](https://lmdeploy.readthedocs.io/en/latest/inference/pipeline.html#turbomindengineconfig)
+  and [EngineGenerationConfig](https://lmdeploy.readthedocs.io/en/latest/inference/pipeline.html#generationconfig)
+- If you evaluate the InternLM Chat model, please use configuration file `eval_internlm_chat_turbomind.py`
+- If you evaluate the InternLM 7B model, please modify `eval_internlm_turbomind.py` or `eval_internlm_chat_turbomind.py` by changing to the setting `models = [internlm_7b]` in the last line.

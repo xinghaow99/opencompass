@@ -28,7 +28,7 @@ gsm8k_infer_cfg = dict(
             ],
         )),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=512, amateur_layer_idx="auto_refine", cd_alpha={cd_alpha}, cd_beta={cd_beta}))
+    inferencer=dict(type=GenInferencer, max_out_len=256, amateur_layer_idx="{layer}", cd_alpha={cd_alpha}, cd_beta={cd_beta}))
 
 gsm8k_eval_cfg = dict(evaluator=dict(type=AccEvaluator),
                       pred_postprocessor=dict(type=gsm8k_postprocess),
@@ -36,7 +36,7 @@ gsm8k_eval_cfg = dict(evaluator=dict(type=AccEvaluator),
 
 gsm8k_datasets = [
     dict(
-        abbr='gsm8k-refine-alpha-{str(cd_alpha).replace('.', '')}-beta-{str(cd_beta).replace('.', '')}',
+        abbr='gsm8k-{layer}-alpha-{str(cd_alpha).replace('.', '')}-beta-{str(cd_beta).replace('.', '')}',
         type=HFDataset,
         path='gsm8k',
         name='main',
@@ -46,7 +46,7 @@ gsm8k_datasets = [
 ]
     """
 
-    file_name = f"gsm8k_gen_refine_alpha_{str(cd_alpha).replace('.', '')}_beta_{str(cd_beta).replace('.', '')}.py"
+    file_name = f"gsm8k_gen_{layer}_alpha_{str(cd_alpha).replace('.', '')}_beta_{str(cd_beta).replace('.', '')}.py"
     with open(file_name, "w") as f:
         f.write(template)
 
@@ -56,7 +56,7 @@ gsm8k_datasets = [
 # generate_script(25, 0.6, 0.5)
 import numpy as np
 if __name__ == "__main__":
-    for layer in ["'auto'"]:
-        for alpha in [2]:
+    for layer in ["refine_norm"]:
+        for alpha in [0.1, 0.5, 1, 1.5, 2, 2.5, 3]:
             for beta in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
                 generate_script(layer, alpha, beta)

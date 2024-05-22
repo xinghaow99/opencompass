@@ -5,8 +5,8 @@ models = [
     dict(
         type=HuggingFaceCausalLM,
         abbr='llama-2-13b-hf',
-        path="/remote-home/share/models/llama_v2_hf/13b",
-        tokenizer_path='/remote-home/share/models/llama_v2_hf/13b',
+        path="/cpfs01/shared/alillm2/user/wangxinghao/models/Llama-2-13b-hf",
+        tokenizer_path='/cpfs01/shared/alillm2/user/wangxinghao/models/Llama-2-13b-hf',
         tokenizer_kwargs=dict(padding_side='left',
                               truncation_side='left',
                               use_fast=False,
@@ -18,6 +18,6 @@ models = [
         batch_size=4,
         model_kwargs=dict(device_map='auto'),
         batch_padding=True, # if false, inference with for-loop without batch padding
-        run_cfg=dict(num_gpus=2, num_procs=1),
+        run_cfg=dict(num_gpus=1, num_procs=1),
     )
 ]

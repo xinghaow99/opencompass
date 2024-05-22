@@ -22,6 +22,37 @@ from opencompass.utils import (build_dataset_from_cfg, dataset_abbr_from_cfg,
                                task_abbr_from_cfg)
 
 
+def extract_role_pred(s: str, begin_str: Optional[str],
+                      end_str: Optional[str]) -> str:
+    """Extract the role prediction from the full prediction string. The role
+    prediction may be the substring between the begin and end string.
+
+    Args:
+        s (str): Full prediction string.
+        begin_str (str): The beginning string of the role
+        end_str (str): The ending string of the role.
+
+    Returns:
+        str: The extracted role prediction.
+    """
+    start = 0
+    end = len(s)
+
+    if begin_str:
+        begin_idx = s.find(begin_str)
+        if begin_idx != -1:
+            start = begin_idx + len(begin_str)
+
+    if end_str:
+        # TODO: Support calling tokenizer for the accurate eos token
+        # and avoid such hardcode
+        end_idx = s.find(end_str, start)
+        if end_idx != -1:
+            end = end_idx
+
+    return s[start:end]
+
+
 @TASKS.register_module(force=(__name__ == '__main__'))  # A hack for script run
 class OpenICLEvalTask(BaseTask):
     """OpenICL Evaluation Task.
@@ -121,8 +152,9 @@ class OpenICLEvalTask(BaseTask):
             pred_dicts = copy.deepcopy(preds)
             preds = {k: [pred.get(k) for pred in preds] for k in preds[0]}
 
-            pred_strs = preds.pop('prediction')
-
+            pred_strs = preds.pop('prediction', None)
+            pred_list_flag = pred_strs is not None and isinstance(
+                pred_strs[0], list)
             if ('pred_role' in self.eval_cfg
                     and 'meta_template' in self.model_cfg
                     and not MODELS.get(self.model_cfg['type']).is_api):
@@ -131,21 +163,19 @@ class OpenICLEvalTask(BaseTask):
                 parser = LMTemplateParser(self.model_cfg['meta_template'])
                 role = parser.roles[self.eval_cfg['pred_role']]
                 if sc_size is not None:
-                    for pred in pred_strs:
-                        if not isinstance(pred, list):
-                            raise TypeError(
-                                'The prediction for Self-Consistency'
-                                'must be list.')
-                        pred_strs.append([
-                            self._extract_role_pred(sc_pred,
-                                                    role.get('begin', None),
-                                                    role.get('end', None))
-                            for sc_pred in pred
-                        ])
+                    assert pred_list_flag, (
+                        'The prediction for Self-Consistency'
+                        'must be list.')
+                if pred_list_flag:
+                    pred_strs = [[
+                        extract_role_pred(_pred, role.get('begin', None),
+                                          role.get('end', None))
+                        for _pred in pred
+                    ] for pred in pred_strs]
                 else:
                     pred_strs = [
-                        self._extract_role_pred(pred, role.get('begin', None),
-                                                role.get('end', None))
+                        extract_role_pred(pred, role.get('begin', None),
+                                          role.get('end', None))
                         for pred in pred_strs
                     ]
 
@@ -155,7 +185,7 @@ class OpenICLEvalTask(BaseTask):
                 proc = kwargs.pop('type')
                 if isinstance(proc, str):
                     proc = TEXT_POSTPROCESSORS.get(proc)
-                if sc_size is not None:
+                if pred_list_flag:
                     pred_strs = [[proc(s, **kwargs) for s in preds]
                                  for preds in pred_strs]
                 else:
@@ -168,10 +198,17 @@ class OpenICLEvalTask(BaseTask):
                 ]
 
             icl_evaluator = ICL_EVALUATORS.build(self.eval_cfg['evaluator'])
+            # need results dir to save other files
+            out_path = get_infer_output_path(
+                self.model_cfg, self.dataset_cfg,
+                osp.join(self.work_dir, 'results'))
+            icl_evaluator._out_dir = osp.splitext(out_path)[
+                0]  # strip extension
 
             preds['predictions'] = pred_strs
             preds['references'] = (test_set[self.output_column]
                                    if self.output_column else None)
+            preds['test_set'] = test_set
             preds = {
                 k: preds[k]
                 for k in signature(icl_evaluator.score).parameters
@@ -179,8 +216,8 @@ class OpenICLEvalTask(BaseTask):
             result = icl_evaluator.score(**preds)
 
             if self.dump_details:
+                details = result.get('details', None)
                 try:
-                    details = result.pop('details', None)
                     result['details'] = self.format_details(
                         pred_strs, test_set[self.output_column], details,
                         pred_dicts)
@@ -188,12 +225,10 @@ class OpenICLEvalTask(BaseTask):
 
                     if 'PPL' in str(
                             self.dataset_cfg.infer_cfg.inferencer.type):
-                        result['correct_bpb'], result[
-                            'incorrect_bpb'] = self.calculate_bpb(pred_dicts)
-                    else:
-                        result['incorrect_bpb'] = result['correct_bpb'] = -1
-                except Exception:
-                    result['incorrect_bpb'] = result['correct_bpb'] = -1
+                        result['correct_bpb'], result['incorrect_bpb'] = \
+                            self.calculate_bpb(pred_dicts)
+                except Exception as e:
+                    self.logger.warning(f'Skip dumping details due to: {e}.')
             else:
                 result.pop('details', None)
 
@@ -214,36 +249,6 @@ class OpenICLEvalTask(BaseTask):
                                          osp.join(self.work_dir, 'results'))
         mkdir_or_exist(osp.split(out_path)[0])
         mmengine.dump(result, out_path, ensure_ascii=False, indent=4)
-
-    def _extract_role_pred(self, s: str, begin_str: Optional[str],
-                           end_str: Optional[str]) -> str:
-        """Extract the role prediction from the full prediction string. The
-        role prediction may be the substring between the begin and end string.
-
-        Args:
-            s (str): Full prediction string.
-            begin_str (str): The beginning string of the role
-            end_str (str): The ending string of the role.
-
-        Returns:
-            str: The extracted role prediction.
-        """
-        start = 0
-        end = len(s)
-
-        if begin_str:
-            begin_idx = s.find(begin_str)
-            if begin_idx != -1:
-                start = begin_idx + len(begin_str)
-
-        if end_str:
-            # TODO: Support calling tokenizer for the accurate eos token
-            # and avoid such hardcode
-            end_idx = s.find(end_str, start)
-            if end_idx != -1:
-                end = end_idx
-
-        return s[start:end]
 
     def format_details(self, predictions, references, details, pred_dicts):
         """This function is responsible for formatting prediction details.
@@ -282,13 +287,19 @@ class OpenICLEvalTask(BaseTask):
                 result['predictions'] = str(predictions[i])
                 result['references'] = str(references[i])
                 result['correct'] = str(predictions[i]) == str(references[i])
-            else:
+            elif details is not None:
                 results['type'] = 'GEN'
                 result['prompt'] = origin_prediction['origin_prompt']
                 result['origin_prediction'] = pred_dicts[i]['prediction']
                 result['predictions'] = details[i]['pred']
-                result['references'] = details[i]['answers']
+                result['references'] = details[i]['answer']
                 result['correct'] = details[i]['correct']
+            else:
+                results['type'] = 'GEN'
+                result['prompt'] = origin_prediction['origin_prompt']
+                result['origin_prediction'] = pred_dicts[i]['prediction']
+                result['predictions'] = str(predictions[i])
+                result['references'] = str(references[i])
             results[str(i)] = result
         return results
 
@@ -324,7 +335,7 @@ class OpenICLEvalTask(BaseTask):
             bpbs = [value['BPB'] for value in values]
             incorrect_bpb_list.append(
                 (sum(bpbs) - min(bpbs)) / (len(bpbs) - 1))
-            bpb_list.append(statistics.mean(bpbs))
+            bpb_list.append(min(bpbs))
 
         def filters(origins):
             targets = [target for target in origins if not math.isnan(target)]

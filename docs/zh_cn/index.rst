@@ -58,13 +58,20 @@ OpenCompass 上手路线
    :caption: 进阶教程
 
    advanced_guides/new_dataset.md
+   advanced_guides/custom_dataset.md
    advanced_guides/new_model.md
    advanced_guides/evaluation_turbomind.md
+   advanced_guides/evaluation_lightllm.md
+   advanced_guides/code_eval.md
    advanced_guides/code_eval_service.md
    advanced_guides/multimodal_eval.md
    advanced_guides/prompt_attack.md
    advanced_guides/longeval.md
    advanced_guides/subjective_evaluation.md
+   advanced_guides/circular_eval.md
+   advanced_guides/contamination_eval.md
+   advanced_guides/compassbench_intro.md
+   advanced_guides/needleinahaystack_eval.md
 
 .. _工具:
 .. toctree::

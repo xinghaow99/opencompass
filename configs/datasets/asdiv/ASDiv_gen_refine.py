@@ -27,7 +27,7 @@ asdiv_infer_cfg = dict(
             ],
         )),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=256, amateur_layer_idx='auto_refine', cd_alpha=1, cd_beta=0.4))
+    inferencer=dict(type=GenInferencer, max_out_len=256, amateur_layer_idx='refine', cd_alpha=10, cd_beta=0.9))
 
 asdiv_eval_cfg = dict(evaluator=dict(type=ASDivEvaluator),
                       pred_postprocessor=dict(type=asdiv_postprocess),

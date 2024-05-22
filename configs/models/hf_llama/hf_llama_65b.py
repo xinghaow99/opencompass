@@ -18,5 +18,6 @@ models = [
         model_kwargs=dict(device_map='auto'),
         batch_padding=True, # if false, inference with for-loop without batch padding
         run_cfg=dict(num_gpus=8, num_procs=1),
+
     )
 ]

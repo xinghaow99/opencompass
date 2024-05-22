@@ -5,7 +5,8 @@ from typing import Dict
 from mmengine.config import Config, ConfigDict
 
 from opencompass.openicl.icl_inferencer import (CLPInferencer, GenInferencer,
-                                                PPLInferencer)
+                                                PPLInferencer,
+                                                PPLOnlyInferencer)
 from opencompass.registry import ICL_PROMPT_TEMPLATES, ICL_RETRIEVERS
 from opencompass.utils import (Menu, build_dataset_from_cfg,
                                build_model_from_cfg, dataset_abbr_from_cfg,
@@ -77,27 +78,25 @@ def print_prompts(model_cfg, dataset_cfg, count=1):
 
     ice_idx_list = retriever.retrieve()
 
-    assert infer_cfg.inferencer.type in [PPLInferencer, GenInferencer], \
+    assert infer_cfg.inferencer.type in [
+        PPLInferencer, GenInferencer, CLPInferencer, PPLOnlyInferencer], \
         'Only PPLInferencer and GenInferencer are supported'
 
     for idx in range(min(count, len(ice_idx_list))):
         if infer_cfg.inferencer.type == PPLInferencer:
             labels = retriever.get_labels(ice_template=ice_template,
                                           prompt_template=prompt_template)
-            ice = [
-                retriever.generate_ice(ice_idx_list[_idx],
-                                       ice_template=ice_template)
-                for _idx in range(len(ice_idx_list))
-            ]
+            ice = retriever.generate_ice(ice_idx_list[idx],
+                                         ice_template=ice_template)
             print('-' * 100)
             print('ICE Template:')
             print('-' * 100)
-            print(ice[0])
+            print(ice)
             print('-' * 100)
             for label in labels:
                 prompt = retriever.generate_label_prompt(
                     idx,
-                    ice[idx],
+                    ice,
                     label,
                     ice_template=ice_template,
                     prompt_template=prompt_template,
@@ -111,11 +110,11 @@ def print_prompts(model_cfg, dataset_cfg, count=1):
                         print(f'Truncating ice {num_ice} -> {num_ice - 1}',
                               f'Number of tokens: {prompt_token_num} -> ...')
                         ice_idx_list[idx] = ice_idx_list[idx][:-1]
-                        ice[idx] = retriever.generate_ice(
-                            ice_idx_list[idx], ice_template=ice_template)
+                        ice = retriever.generate_ice(ice_idx_list[idx],
+                                                     ice_template=ice_template)
                         prompt = retriever.generate_label_prompt(
                             idx,
-                            ice[idx],
+                            ice,
                             label,
                             ice_template=ice_template,
                             prompt_template=prompt_template)
@@ -130,7 +129,9 @@ def print_prompts(model_cfg, dataset_cfg, count=1):
                 print('-' * 100)
                 print(prompt)
                 print('-' * 100)
-        elif infer_cfg.inferencer.type in [GenInferencer, CLPInferencer]:
+        elif infer_cfg.inferencer.type in [
+                GenInferencer, CLPInferencer, PPLOnlyInferencer
+        ]:
             ice_idx = ice_idx_list[idx]
             ice = retriever.generate_ice(ice_idx, ice_template=ice_template)
             prompt = retriever.generate_prompt_for_generate_task(

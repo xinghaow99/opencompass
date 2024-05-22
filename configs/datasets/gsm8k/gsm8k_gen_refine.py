@@ -2,7 +2,7 @@ from opencompass.openicl.icl_prompt_template import PromptTemplate
 from opencompass.openicl.icl_retriever import ZeroRetriever
 from opencompass.openicl.icl_inferencer import GenInferencer
 from opencompass.openicl.icl_evaluator import AccEvaluator
-from opencompass.datasets import HFDataset, gsm8k_postprocess, gsm8k_dataset_postprocess
+from opencompass.datasets import GSM8KDataset, gsm8k_postprocess, gsm8k_dataset_postprocess
 
 gsm8k_reader_cfg = dict(input_columns=['question'], output_column='answer')
 
@@ -23,7 +23,7 @@ gsm8k_infer_cfg = dict(
             ],
         )),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=512, amateur_layer_idx='auto_refine', cd_alpha=1, cd_beta=0.4))
+    inferencer=dict(type=GenInferencer, max_out_len=256, amateur_layer_idx='auto_refine', cd_alpha=1, cd_beta=0.9))
 
 gsm8k_eval_cfg = dict(evaluator=dict(type=AccEvaluator),
                       pred_postprocessor=dict(type=gsm8k_postprocess),
@@ -32,9 +32,8 @@ gsm8k_eval_cfg = dict(evaluator=dict(type=AccEvaluator),
 gsm8k_datasets = [
     dict(
         abbr='gsm8k-refine',
-        type=HFDataset,
-        path='gsm8k',
-        name='main',
+        type=GSM8KDataset,
+        path='./data/gsm8k',
         reader_cfg=gsm8k_reader_cfg,
         infer_cfg=gsm8k_infer_cfg,
         eval_cfg=gsm8k_eval_cfg)

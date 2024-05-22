@@ -47,15 +47,10 @@ with read_base():
     from ..piqa.piqa_ppl_1cf9f0 import piqa_datasets
     from ..siqa.siqa_ppl_ced5f6 import siqa_datasets
     from ..strategyqa.strategyqa_gen_1180a7 import strategyqa_datasets
-    from ..winogrande.winogrande_ppl_55a66e import winogrande_datasets
+    from ..winogrande.winogrande_ll_c5cf57 import winogrande_datasets
     from ..obqa.obqa_ppl_c7c154 import obqa_datasets
     from ..nq.nq_gen_c788f6 import nq_datasets
     from ..triviaqa.triviaqa_gen_2121ce import triviaqa_datasets
     from ..flores.flores_gen_806ede import flores_datasets
-    from ..crowspairs.crowspairs_ppl_e811e1 import crowspairs_datasets
-    from ..civilcomments.civilcomments_clp_a3c5fd import civilcomments_datasets
-    from ..jigsawmultilingual.jigsawmultilingual_clp_fe50d8 import jigsawmultilingual_datasets
-    from ..realtoxicprompts.realtoxicprompts_gen_7605e4 import realtoxicprompts_datasets
-    from ..truthfulqa.truthfulqa_gen_5ddc62 import truthfulqa_datasets
 
 datasets = sum((v for k, v in locals().items() if k.endswith('_datasets')), [])

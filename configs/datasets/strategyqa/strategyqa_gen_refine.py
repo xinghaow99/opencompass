@@ -76,7 +76,7 @@ strategyqa_infer_cfg = dict(
                 dict(role='HUMAN', prompt='Question: {question}\nAnswer:'),
             ], )),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=512, amateur_layer_idx='auto_refine', cd_alpha=1, cd_beta=0.4))
+    inferencer=dict(type=GenInferencer, max_out_len=512, amateur_layer_idx='auto_refine', cd_alpha=1, cd_beta=0.9))
 
 strategyqa_eval_cfg = dict(
     evaluator=dict(type=AccEvaluator),

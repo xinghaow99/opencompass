@@ -2,21 +2,23 @@ absl-py
 accelerate>=0.19.0
 boto3
 cn2an
-colossalai
 cpm_kernels
 datasets>=2.12.0
+einops==0.5.0
 evaluate>=0.3.0
 fairscale
-faiss_gpu==1.7.2
+func_timeout
 fuzzywuzzy
 jieba
 ltp
-mmengine>=0.8.2
+mmengine-lite
 nltk==3.8
 numpy==1.23.4
 openai
 OpenCC
+opencv-python-headless
 pandas<2.0.0
+prettytable
 pypinyin
 python-Levenshtein
 rank_bm25==0.2.2
@@ -24,7 +26,7 @@ rapidfuzz
 requests==2.31.0
 rich
 rouge
-rouge_chinese
+-e git+https://github.com/Isaac-JL-Chen/rouge_chinese.git@master#egg=rouge_chinese
 rouge_score
 sacrebleu
 scikit_learn==1.2.1

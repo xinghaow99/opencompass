@@ -33,23 +33,26 @@ Create a {lang} script for this problem:
 humanevalx_eval_cfg_dict = {
     lang: dict(
         evaluator=dict(
-            type=HumanevalXEvaluator,
+            type=HumanevalXEvaluator, 
             language=lang,
             ip_address=
             "localhost",  # replace to your code_eval_server ip_address, port
-            port=5000
-        ),  # refer to https://github.com/Ezra-Yu/code-evaluator to launch a server
+            port=5001
+        ),  # refer to https://opencompass.readthedocs.io/en/latest/advanced_guides/code_eval_service.html to launch a server
         pred_role='BOT')
     for lang in ['python', 'cpp', 'go', 'java', 'js'
                  ]  # do not support rust now
 }
 
+# Please download the needed `xx.jsonl.gz` from
+# https://github.com/THUDM/CodeGeeX2/tree/main/benchmark/humanevalx
+# and move them into `data/humanevalx/` folder
 humanevalx_datasets = [
     dict(
         type=HumanevalXDataset,
         abbr=f'humanevalx-{lang}',
         language=lang,
-        path='./backup_data/humanevalx',
+        path='./data/humanevalx',
         reader_cfg=humanevalx_reader_cfg,
         infer_cfg=humanevalx_infer_cfg[lang],
         eval_cfg=humanevalx_eval_cfg_dict[lang])
